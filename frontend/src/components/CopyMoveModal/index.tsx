@@ -83,7 +83,7 @@ export default function CopyMoveModal({
   return (
     <Modal
       open={visible}
-      title={<span style={{ ...mono, fontSize: 13, color: '#ECECEE' }}>{title}</span>}
+      title={<span style={{ ...mono, fontSize: 13, color: '#ECEEF1' }}>{title}</span>}
       onCancel={onClose}
       onOk={handleOk}
       confirmLoading={loading}
@@ -92,7 +92,7 @@ export default function CopyMoveModal({
     >
       <Space direction="vertical" style={{ width: '100%', marginTop: 12 }} size={12}>
         <div>
-          <div style={{ color: '#A0A0A8', fontSize: 11, ...mono, marginBottom: 4 }}>destination bucket</div>
+          <div style={{ color: '#9AA0AA', fontSize: 11, ...mono, marginBottom: 4 }}>destination bucket</div>
           <Select
             value={destBucket}
             onChange={setDestBucket}
@@ -102,7 +102,7 @@ export default function CopyMoveModal({
         </div>
         {bulk ? (
           <div>
-            <div style={{ color: '#A0A0A8', fontSize: 11, ...mono, marginBottom: 4 }}>
+            <div style={{ color: '#9AA0AA', fontSize: 11, ...mono, marginBottom: 4 }}>
               destination prefix (optional)
             </div>
             <Input
@@ -117,7 +117,7 @@ export default function CopyMoveModal({
           </div>
         ) : (
           <div>
-            <div style={{ color: '#A0A0A8', fontSize: 11, ...mono, marginBottom: 4 }}>destination key</div>
+            <div style={{ color: '#9AA0AA', fontSize: 11, ...mono, marginBottom: 4 }}>destination key</div>
             <Input value={destKey} onChange={(e) => setDestKey(e.target.value)} style={{ ...mono, fontSize: 12 }} />
           </div>
         )}

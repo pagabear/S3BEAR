@@ -76,7 +76,7 @@ export default function SharesPage() {
       key: 'expires_at',
       width: 150,
       render: (v: string | null) => (
-        <span style={{ ...mono, fontSize: 11, color: '#A0A0A8' }}>
+        <span style={{ ...mono, fontSize: 11, color: '#9AA0AA' }}>
           {v ? dayjs(v).format('YYYY-MM-DD HH:mm') : 'never'}
         </span>
       ),

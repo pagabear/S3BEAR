@@ -111,6 +111,33 @@ More screens (sign-in, storage & auth settings, webhooks) are in **[HOW-TO.md](H
 
 ---
 
+## Performance
+
+<!-- markdownlint-disable MD013 -->
+
+Local development benchmarks cover direct object-store access, presigned
+downloads, end-to-end authorization plus signing, and public share proxying.
+Across 17 reports, all 2,680 measured samples completed successfully with no
+short responses.
+
+| Profile | Direct | Presigned data | Presigned E2E | Share proxy | Failed |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 16 MiB, c10, median of 3 | 1935 MiB/s | 1981 MiB/s | 1588 MiB/s | 1584 MiB/s | 0 / 360 |
+| 1 MiB, c50 stress | 558 MiB/s | 475 MiB/s | 396 MiB/s | 161 MiB/s | 0 / 400 |
+
+The ordinary presigned data path stays close to direct storage. Small public
+share downloads remain the main high-concurrency bottleneck because they add
+token accounting and proxy every byte through s3BEAR. These are same-host lab
+results, not production capacity or vendor-ranking claims.
+
+See **[benchmark results and gateway comparison](benchmarks/README.md)** for
+methodology, p95 latency, success/failure criteria, raw-report interpretation,
+and architectural comparisons with S3Proxy, VersityGW, and Ceph RGW.
+
+<!-- markdownlint-enable MD013 -->
+
+---
+
 ## Documentation
 
 - **[Documentation](https://s3.pagabear.com)** — guides, configuration, deployment, and reference documentation

@@ -84,9 +84,8 @@ async def authenticate(db: "AsyncSession", raw_token: str) -> "User | None":
     """Resolve a raw PAT to its active user, or None if the token is unknown,
     revoked, expired, or the user is inactive. Updates last_used_at (throttled)."""
     from sqlalchemy import select
-    from sqlalchemy.orm import selectinload
     from app.models.api_token import ApiToken
-    from app.models.user import User
+    from app.services.auth import load_active_user_with_permissions
 
     result = await db.execute(
         select(ApiToken).where(ApiToken.token_hash == hash_token(raw_token))
@@ -98,11 +97,8 @@ async def authenticate(db: "AsyncSession", raw_token: str) -> "User | None":
     if row.expires_at is not None and row.expires_at <= now:
         return None
 
-    user_result = await db.execute(
-        select(User).options(selectinload(User.groups)).where(User.id == row.user_id)
-    )
-    user = user_result.scalar_one_or_none()
-    if user is None or not user.is_active:
+    user = await load_active_user_with_permissions(db, row.user_id)
+    if user is None:
         return None
 
     if should_update_last_used(row.last_used_at):

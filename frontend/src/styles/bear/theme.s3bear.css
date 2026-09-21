@@ -1,0 +1,45 @@
+/* =========================================================================
+   BEAR Design System — theme.s3bear.css
+   Fills the --brand-* slot with s3BEAR EMERALD. Load AFTER theme.css.
+   Emerald is a LIGHT-luminance hue, so its solid fill carries an INK label
+   (accent-contrast = Carbon #0C0D10), NOT white — a deliberate brand
+   signature that keeps the recognizable bright #10B981 legible (~7.8:1) in
+   BOTH themes. FIXED brand identity — do not change these hexes.
+   ========================================================================= */
+
+/* Dark (default working surface, and the s3BEAR app's only surface) */
+:root {
+  --brand-accent: #10B981;           /* emerald-500 — the identity green */
+  --brand-accent-hover: #34D399;     /* emerald-400 (brighter on press/hover in dark) */
+  --brand-accent-contrast: #0C0D10;  /* ink label on the green fill */
+  --brand-accent-text: #34D399;      /* accent AS text/icon on Carbon (bright, high-contrast) */
+  --brand-accent-soft: rgba(16,185,129,0.16);
+  --brand-accent-ring: rgba(52,211,153,0.55);
+  --brand-accent-border: #34D399;
+}
+
+/* Light (explicit opt-in) */
+:root[data-theme="light"],
+.light,
+[data-theme="light"] {
+  --brand-accent: #10B981;           /* keep the identity green as the fill */
+  --brand-accent-hover: #059669;     /* emerald-600 (deeper on press/hover in light) */
+  --brand-accent-contrast: #0C0D10;  /* ink label on green: ~7.8:1 */
+  --brand-accent-text: #047857;      /* accent AS text on white steps down to 700 for AA (4.6:1) */
+  --brand-accent-soft: rgba(16,185,129,0.10);
+  --brand-accent-ring: rgba(16,185,129,0.45);
+  --brand-accent-border: #059669;
+}
+
+/* Auto (system light, no explicit attribute) — keep brand in sync with neutrals */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]):not(.dark) {
+    --brand-accent: #10B981;
+    --brand-accent-hover: #059669;
+    --brand-accent-contrast: #0C0D10;
+    --brand-accent-text: #047857;
+    --brand-accent-soft: rgba(16,185,129,0.10);
+    --brand-accent-ring: rgba(16,185,129,0.45);
+    --brand-accent-border: #059669;
+  }
+}

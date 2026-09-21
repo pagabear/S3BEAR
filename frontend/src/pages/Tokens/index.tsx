@@ -102,7 +102,7 @@ export default function TokensPage() {
       dataIndex: 'token_prefix',
       key: 'token_prefix',
       width: 180,
-      render: (v: string) => <span style={{ ...mono, fontSize: 11, color: '#A0A0A8' }}>{v}…</span>,
+      render: (v: string) => <span style={{ ...mono, fontSize: 11, color: '#9AA0AA' }}>{v}…</span>,
     },
     {
       title: 'expires',
@@ -110,7 +110,7 @@ export default function TokensPage() {
       key: 'expires_at',
       width: 150,
       render: (v: string | null) => (
-        <span style={{ ...mono, fontSize: 11, color: '#A0A0A8' }}>
+        <span style={{ ...mono, fontSize: 11, color: '#9AA0AA' }}>
           {v ? dayjs(v).format('YYYY-MM-DD') : 'never'}
         </span>
       ),
@@ -121,7 +121,7 @@ export default function TokensPage() {
       key: 'last_used_at',
       width: 150,
       render: (v: string | null) => (
-        <span style={{ ...mono, fontSize: 11, color: '#A0A0A8' }}>
+        <span style={{ ...mono, fontSize: 11, color: '#9AA0AA' }}>
           {v ? dayjs(v).format('YYYY-MM-DD HH:mm') : 'never'}
         </span>
       ),

@@ -1,4 +1,4 @@
-from pydantic import field_validator
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import List
 
@@ -36,6 +36,9 @@ class Settings(BaseSettings):
     # Database
     DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/s3bear"
     DATABASE_URL_SYNC: str = "postgresql://postgres:postgres@localhost:5432/s3bear"
+    DB_POOL_SIZE: int = Field(default=10, ge=1, le=500)
+    DB_MAX_OVERFLOW: int = Field(default=20, ge=0, le=500)
+    DB_POOL_TIMEOUT_SECONDS: int = Field(default=30, ge=1, le=300)
 
     # Azure Entra
     AZURE_TENANT_ID: str = ""
@@ -53,6 +56,8 @@ class Settings(BaseSettings):
     AWS_SECRET_ACCESS_KEY: str = ""
     AWS_REGION: str = "us-east-1"
     AWS_ENDPOINT_URL: str = ""  # For MinIO / compatible S3
+    S3_MAX_POOL_CONNECTIONS: int = Field(default=64, ge=1, le=1024)
+    S3_STREAM_CHUNK_SIZE_KB: int = Field(default=1024, ge=64, le=16384)
 
     # Presigned / Multipart
     PRESIGNED_URL_BASE: str = ""  # External-facing S3 URL (e.g. http://localhost:9000). Falls back to AWS_ENDPOINT_URL
@@ -61,6 +66,9 @@ class Settings(BaseSettings):
 
     # Image transformation (on-the-fly resize/format via ?w=&h=&format=&q=&fit=)
     MAX_IMAGE_TRANSFORM_MB: int = 25  # source objects larger than this are served un-transformed
+
+    # Public share access accounting
+    SHARE_ACCESS_COUNTER_SHARDS: int = Field(default=16, ge=1, le=256)
 
     # Webhooks
     WEBHOOKS_ENABLED: bool = True

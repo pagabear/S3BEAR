@@ -11,8 +11,11 @@ from __future__ import annotations
 
 import hashlib
 import secrets
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING
+
+from app.core.config import settings
 
 if TYPE_CHECKING:  # avoid importing SQLAlchemy at module load
     import uuid
@@ -26,6 +29,13 @@ _UNIT_SECONDS = {"s": 1, "m": 60, "h": 3600, "d": 86400, "w": 604800}
 
 class ShareLinkGone(Exception):
     """Raised when a share link is missing, expired, or revoked."""
+
+
+@dataclass(frozen=True)
+class ResolvedShareLink:
+    id: "uuid.UUID"
+    bucket: str
+    object_key: str
 
 
 # --- pure helpers -----------------------------------------------------------
@@ -103,40 +113,100 @@ async def create_share_link(
     return link, raw_token
 
 
-async def resolve_active_link(db: "AsyncSession", token: str) -> "ShareLink":
-    """Look up a link by raw token and validate it. Increments access counters.
-    Raises ShareLinkGone if missing, revoked, or expired."""
-    from sqlalchemy import select
-    from app.models.share import ShareLink
+async def resolve_active_link(db: "AsyncSession", token: str) -> ResolvedShareLink:
+    """Validate a link and increment one counter shard in a single statement."""
+    from sqlalchemy import text
 
-    result = await db.execute(
-        select(ShareLink).where(ShareLink.token_hash == hash_token(token))
-    )
-    link = result.scalar_one_or_none()
-    if link is None or link.revoked:
-        raise ShareLinkGone()
     now = datetime.now(timezone.utc)
-    if link.expires_at is not None and link.expires_at <= now:
+    shard = secrets.randbelow(settings.SHARE_ACCESS_COUNTER_SHARDS)
+    result = await db.execute(
+        text(
+            """
+            WITH active_link AS (
+                SELECT id, bucket, object_key
+                FROM share_links
+                WHERE token_hash = :token_hash
+                  AND revoked IS FALSE
+                  AND (expires_at IS NULL OR expires_at > :accessed_at)
+            ), recorded_access AS (
+                INSERT INTO share_link_access_counters (
+                    share_link_id, shard, access_count, last_accessed_at
+                )
+                SELECT id, :shard, 1, :accessed_at
+                FROM active_link
+                ON CONFLICT (share_link_id, shard) DO UPDATE
+                SET access_count = share_link_access_counters.access_count + 1,
+                    last_accessed_at = EXCLUDED.last_accessed_at
+                RETURNING share_link_id
+            )
+            SELECT active_link.id, active_link.bucket, active_link.object_key
+            FROM active_link
+            JOIN recorded_access
+              ON recorded_access.share_link_id = active_link.id
+            """
+        ),
+        {
+            "token_hash": hash_token(token),
+            "shard": shard,
+            "accessed_at": now,
+        },
+    )
+    row = result.mappings().one_or_none()
+    if row is None:
         raise ShareLinkGone()
 
-    link.access_count += 1
-    link.last_accessed_at = now
-    await db.flush()
-    return link
+    await db.commit()
+    return ResolvedShareLink(
+        id=row["id"],
+        bucket=row["bucket"],
+        object_key=row["object_key"],
+    )
 
 
 async def list_links(db: "AsyncSession", user: "User", bucket: str | None = None):
     """List share links visible to the user (own links; admins see all)."""
-    from sqlalchemy import select
-    from app.models.share import ShareLink
+    from sqlalchemy import func, select
+    from sqlalchemy.orm.attributes import set_committed_value
+    from app.models.share import ShareLink, ShareLinkAccessCounter
 
-    stmt = select(ShareLink).order_by(ShareLink.created_at.desc())
+    counter_totals = (
+        select(
+            ShareLinkAccessCounter.share_link_id.label("share_link_id"),
+            func.sum(ShareLinkAccessCounter.access_count).label("access_count"),
+            func.max(ShareLinkAccessCounter.last_accessed_at).label("last_accessed_at"),
+        )
+        .group_by(ShareLinkAccessCounter.share_link_id)
+        .subquery()
+    )
+    stmt = (
+        select(
+            ShareLink,
+            counter_totals.c.access_count,
+            counter_totals.c.last_accessed_at,
+        )
+        .outerjoin(counter_totals, counter_totals.c.share_link_id == ShareLink.id)
+        .order_by(ShareLink.created_at.desc())
+        .execution_options(populate_existing=True)
+    )
     if not user.is_admin:
         stmt = stmt.where(ShareLink.created_by_user_id == user.id)
     if bucket:
         stmt = stmt.where(ShareLink.bucket == bucket)
     result = await db.execute(stmt)
-    return list(result.scalars().all())
+    links = []
+    for link, sharded_count, sharded_last_accessed_at in result.all():
+        set_committed_value(
+            link,
+            "access_count",
+            link.access_count + int(sharded_count or 0),
+        )
+        if sharded_last_accessed_at is not None and (
+            link.last_accessed_at is None
+            or sharded_last_accessed_at > link.last_accessed_at
+        ):
+            set_committed_value(link, "last_accessed_at", sharded_last_accessed_at)
+        links.append(link)
+    return links
 
 
 async def revoke_link(db: "AsyncSession", user: "User", link_id: "uuid.UUID") -> "ShareLink | None":

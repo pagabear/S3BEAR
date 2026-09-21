@@ -164,9 +164,9 @@ export default function WebhooksPage() {
     { title: 'event', dataIndex: 'event', key: 'event', width: 110, render: (v: string) => <span style={{ ...mono, fontSize: 11 }}>{v}</span> },
     { title: 'status', dataIndex: 'status', key: 'status', width: 90, render: (v: string) => <Tag color={DELIVERY_COLORS[v]} style={{ ...mono, fontSize: 10 }}>{v}</Tag> },
     { title: 'attempts', dataIndex: 'attempts', key: 'attempts', width: 80, render: (v: number) => <span style={{ ...mono, fontSize: 11 }}>{v}</span> },
-    { title: 'code', dataIndex: 'last_status_code', key: 'code', width: 70, render: (v: number | null) => <span style={{ ...mono, fontSize: 11, color: '#A0A0A8' }}>{v ?? '—'}</span> },
+    { title: 'code', dataIndex: 'last_status_code', key: 'code', width: 70, render: (v: number | null) => <span style={{ ...mono, fontSize: 11, color: '#9AA0AA' }}>{v ?? '—'}</span> },
     { title: 'error', dataIndex: 'last_error', key: 'error', ellipsis: true, render: (v: string | null) => <span style={{ ...mono, fontSize: 10, color: '#EF4444' }}>{v || ''}</span> },
-    { title: 'time', dataIndex: 'created_at', key: 'time', width: 150, render: (v: string) => <span style={{ ...mono, fontSize: 11, color: '#A0A0A8' }}>{dayjs(v).format('MM-DD HH:mm:ss')}</span> },
+    { title: 'time', dataIndex: 'created_at', key: 'time', width: 150, render: (v: string) => <span style={{ ...mono, fontSize: 11, color: '#9AA0AA' }}>{dayjs(v).format('MM-DD HH:mm:ss')}</span> },
   ]
 
   return (

@@ -120,7 +120,7 @@ export default function BucketBrowser({ bucket, canWrite, canDelete }: BucketBro
           <Space size={8}>
             {isImg
               ? <FileImageOutlined style={{ color: '#10B981', fontSize: 13 }} />
-              : <FileOutlined style={{ color: '#6B6B73', fontSize: 13 }} />
+              : <FileOutlined style={{ color: '#656B75', fontSize: 13 }} />
             }
             <span style={{ ...monoStyle, color: '#CBD5E1' }}>{name}</span>
           </Space>
@@ -133,7 +133,7 @@ export default function BucketBrowser({ bucket, canWrite, canDelete }: BucketBro
       key: 'size',
       width: 100,
       render: (v: number, record: any) => (
-        <span style={{ ...monoStyle, color: '#6B6B73' }}>{record.isFolder ? '—' : formatBytes(v)}</span>
+        <span style={{ ...monoStyle, color: '#656B75' }}>{record.isFolder ? '—' : formatBytes(v)}</span>
       ),
     },
     {
@@ -142,7 +142,7 @@ export default function BucketBrowser({ bucket, canWrite, canDelete }: BucketBro
       key: 'last_modified',
       width: 160,
       render: (v: string, record: any) => (
-        <span style={{ ...monoStyle, color: '#6B6B73' }}>{record.isFolder ? '—' : dayjs(v).format('YYYY-MM-DD HH:mm')}</span>
+        <span style={{ ...monoStyle, color: '#656B75' }}>{record.isFolder ? '—' : dayjs(v).format('YYYY-MM-DD HH:mm')}</span>
       ),
     },
     {
@@ -159,7 +159,7 @@ export default function BucketBrowser({ bucket, canWrite, canDelete }: BucketBro
                 size="small"
                 icon={<LinkOutlined />}
                 onClick={() => setShareModal({ visible: true, key: record.key })}
-                style={{ color: '#6B6B73', opacity: 0.7 }}
+                style={{ color: '#656B75', opacity: 0.7 }}
               />
             </Tooltip>
             {canWrite && (
@@ -169,7 +169,7 @@ export default function BucketBrowser({ bucket, canWrite, canDelete }: BucketBro
                   size="small"
                   icon={<DragOutlined />}
                   onClick={() => setCopyMoveModal({ visible: true, mode: 'copy', sourceKey: record.key })}
-                  style={{ color: '#6B6B73', opacity: 0.7 }}
+                  style={{ color: '#656B75', opacity: 0.7 }}
                 />
               </Tooltip>
             )}
@@ -180,7 +180,7 @@ export default function BucketBrowser({ bucket, canWrite, canDelete }: BucketBro
                   size="small"
                   icon={<ScissorOutlined />}
                   onClick={() => setCopyMoveModal({ visible: true, mode: 'move', sourceKey: record.key })}
-                  style={{ color: '#6B6B73', opacity: 0.7 }}
+                  style={{ color: '#656B75', opacity: 0.7 }}
                 />
               </Tooltip>
             )}
@@ -213,15 +213,15 @@ export default function BucketBrowser({ bucket, canWrite, canDelete }: BucketBro
           justifyContent: 'space-between',
           marginBottom: 12,
           padding: '8px 14px',
-          background: '#141416',
+          background: '#15171B',
           borderRadius: 6,
-          border: '1px solid #2A2A30',
+          border: '1px solid #282C33',
           flexWrap: 'wrap',
           gap: 8,
         }}
       >
         <Breadcrumb
-          separator={<span style={{ color: '#6B6B73', fontFamily: "'Fira Code', monospace", fontSize: 12 }}>/</span>}
+          separator={<span style={{ color: '#656B75', fontFamily: "'Fira Code', monospace", fontSize: 12 }}>/</span>}
           items={[
             {
               title: (
@@ -229,7 +229,7 @@ export default function BucketBrowser({ bucket, canWrite, canDelete }: BucketBro
                   type="text"
                   size="small"
                   onClick={() => setPrefix('')}
-                  style={{ color: '#A0A0A8', padding: '0 4px', fontFamily: "'Fira Code', monospace", fontSize: 12 }}
+                  style={{ color: '#9AA0AA', padding: '0 4px', fontFamily: "'Fira Code', monospace", fontSize: 12 }}
                 >
                   ~/{bucket}
                 </Button>
@@ -242,7 +242,7 @@ export default function BucketBrowser({ bucket, canWrite, canDelete }: BucketBro
                   size="small"
                   onClick={() => setPrefix(breadcrumbParts.slice(0, i + 1).join('/') + '/')}
                   style={{
-                    color: i === breadcrumbParts.length - 1 ? '#ECECEE' : '#A0A0A8',
+                    color: i === breadcrumbParts.length - 1 ? '#ECEEF1' : '#9AA0AA',
                     padding: '0 4px',
                     fontFamily: "'Fira Code', monospace",
                     fontSize: 12,

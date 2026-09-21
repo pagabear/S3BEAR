@@ -85,7 +85,7 @@ export default function UploadButton({ bucket, prefix, onSuccess, visible, onClo
       }}
       footer={null}
       title={
-        <span style={{ fontFamily: "'Fira Code', monospace", fontSize: 13, color: '#ECECEE' }}>
+        <span style={{ fontFamily: "'Fira Code', monospace", fontSize: 13, color: '#ECEEF1' }}>
           upload
         </span>
       }
@@ -97,7 +97,7 @@ export default function UploadButton({ bucket, prefix, onSuccess, visible, onClo
         <p className="ant-upload-text" style={{ fontFamily: "'Fira Code', monospace", fontSize: 12 }}>
           click or drag files to upload
         </p>
-        <p className="ant-upload-hint" style={{ fontFamily: "'Fira Code', monospace", fontSize: 11, color: '#A0A0A8' }}>
+        <p className="ant-upload-hint" style={{ fontFamily: "'Fira Code', monospace", fontSize: 11, color: '#9AA0AA' }}>
           {bucket}/{prefix || '(root)'} &middot; files &gt;100MB use multipart
         </p>
       </Dragger>
@@ -108,10 +108,10 @@ export default function UploadButton({ bucket, prefix, onSuccess, visible, onClo
             percent={multipartProgress.percentage}
             size="small"
             strokeColor="#10B981"
-            trailColor="#2A2A30"
+            trailColor="#282C33"
           />
           <Space style={{ marginTop: 8 }}>
-            <span style={{ fontFamily: "'Fira Code', monospace", fontSize: 11, color: '#A0A0A8' }}>
+            <span style={{ fontFamily: "'Fira Code', monospace", fontSize: 11, color: '#9AA0AA' }}>
               {formatBytes(multipartProgress.loaded)} / {formatBytes(multipartProgress.total)}
             </span>
             <Button size="small" danger onClick={handleAbort} style={{ fontFamily: "'Fira Code', monospace", fontSize: 11 }}>

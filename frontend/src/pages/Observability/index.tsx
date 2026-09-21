@@ -110,7 +110,7 @@ export default function ObservabilityPage() {
       render: (_: any, r: any) => {
         if (r.quota_bytes > 0) { const p = Math.min(100, Math.round((r.size / r.quota_bytes) * 100)); return <Progress percent={p} size="small" status={p >= 90 ? 'exception' : 'normal'} /> }
         const p = scope.size > 0 ? Math.round((r.size / scope.size) * 100) : 0
-        return <Progress percent={p} size="small" strokeColor="#6B6B73" />
+        return <Progress percent={p} size="small" strokeColor="#656B75" />
       },
     },
   ]

@@ -7,6 +7,28 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 
+async def load_active_user_with_permissions(db, user_id):
+    """Load an active user and authorization graph in one database round trip."""
+    from sqlalchemy import select
+    from sqlalchemy.orm import joinedload
+
+    from app.models.group import Group
+    from app.models.user import User
+
+    result = await db.execute(
+        select(User)
+        .options(
+            joinedload(User.groups).joinedload(Group.permissions),
+            joinedload(User.groups).noload(Group.users),
+        )
+        .where(User.id == user_id)
+    )
+    user = result.unique().scalar_one_or_none()
+    if user is None or not user.is_active:
+        return None
+    return user
+
+
 def _get_msal_app(tenant_id: str, client_id: str, client_secret: str) -> msal.ConfidentialClientApplication:
     authority = f"https://login.microsoftonline.com/{tenant_id}"
     return msal.ConfidentialClientApplication(

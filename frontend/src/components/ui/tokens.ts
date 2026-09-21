@@ -1,15 +1,16 @@
 import React from 'react'
 
-/** Shared visual tokens for the s3BEAR console. */
+/** Shared visual tokens for the s3BEAR console — BEAR "Carbon" ramp + emerald.
+ *  Byte-identical to the rest of the BEAR Design System (websites + gatebear app). */
 export const C = {
-  bg: '#0A0A0B',
-  surface: '#141416',
-  raised: '#1C1C20',
-  border: '#2A2A30',
-  text: '#ECECEE',
-  muted: '#A0A0A8',
-  dim: '#6B6B73',
-  accent: '#10B981',
+  bg: '#0C0D10',       // carbon-950
+  surface: '#15171B',  // carbon-900 (panel)
+  raised: '#1C1E23',   // carbon-850 (panel-2 / elevated inset)
+  border: '#282C33',   // carbon-800
+  text: '#ECEEF1',     // carbon-100
+  muted: '#9AA0AA',    // carbon-400
+  dim: '#656B75',      // carbon-500
+  accent: '#10B981',   // emerald (identity green — fixed)
   accentHover: '#34D399',
   accentSoftBg: 'rgba(16,185,129,0.12)',
   accentSoftBorder: 'rgba(16,185,129,0.28)',
@@ -20,7 +21,8 @@ export const C = {
 
 /** Monospace style for technical values (keys, regions, endpoints, ids). */
 export const mono: React.CSSProperties = {
-  fontFamily: "'Fira Code', ui-monospace, SFMono-Regular, Menlo, monospace",
+  fontFamily: "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, monospace",
+  fontVariantNumeric: 'tabular-nums',
 }
 
 /** Section-label style used above form groups and nav sections. */

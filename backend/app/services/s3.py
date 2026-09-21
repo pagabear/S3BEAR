@@ -4,6 +4,7 @@ from botocore.exceptions import ClientError
 from typing import AsyncGenerator, Optional
 import asyncio
 import time
+from functools import lru_cache, partial
 
 from app.core.config import settings
 
@@ -62,8 +63,8 @@ def set_providers(providers: list[dict], default_id: str | None = None) -> None:
         _default_provider_id = providers[0]["id"]
     else:
         _default_provider_id = None
-    # Provider configs changed; drop any boto3 clients built from the old ones.
-    _client_cache.clear()
+    _cached_client.cache_clear()
+    _cached_presign_client.cache_clear()
 
 
 def set_bucket_map(mapping: dict[str, str]) -> None:
@@ -125,43 +126,93 @@ def _resolve_cfg(bucket: str | None = None, provider_id: str | None = None) -> d
     return _env_cfg()
 
 
+def _create_client(
+    access_key: str,
+    secret_key: str,
+    region: str,
+    endpoint: str,
+    max_pool_connections: int,
+):
+    kwargs = {
+        "aws_access_key_id": access_key,
+        "aws_secret_access_key": secret_key,
+        "region_name": region,
+        "config": Config(max_pool_connections=max_pool_connections),
+    }
+    if endpoint:
+        kwargs["endpoint_url"] = endpoint
+    return boto3.client("s3", **kwargs)
+
+
+@lru_cache(maxsize=64)
+def _cached_client(
+    access_key: str,
+    secret_key: str,
+    region: str,
+    endpoint: str,
+    max_pool_connections: int,
+):
+    return _create_client(
+        access_key,
+        secret_key,
+        region,
+        endpoint,
+        max_pool_connections,
+    )
+
+
+@lru_cache(maxsize=64)
+def _cached_presign_client(
+    access_key: str,
+    secret_key: str,
+    region: str,
+    endpoint: str,
+    max_pool_connections: int,
+):
+    kwargs = {
+        "aws_access_key_id": access_key,
+        "aws_secret_access_key": secret_key,
+        "region_name": region,
+        "config": Config(
+            signature_version="s3v4",
+            max_pool_connections=max_pool_connections,
+        ),
+    }
+    if endpoint:
+        kwargs["endpoint_url"] = endpoint
+    return boto3.client("s3", **kwargs)
+
+
 def _make_client(bucket: str | None = None, provider_id: str | None = None, cfg: dict | None = None):
-    c = cfg or _resolve_cfg(bucket, provider_id)
-    endpoint = c.get("endpoint") or ""
-    key = ("plain", c["access_key"], c["region"], endpoint)
-    client = _client_cache.get(key)
-    if client is None:
-        kwargs = {
-            "aws_access_key_id": c["access_key"],
-            "aws_secret_access_key": c["secret_key"],
-            "region_name": c["region"],
-        }
-        if endpoint:
-            kwargs["endpoint_url"] = endpoint
-        client = boto3.client("s3", **kwargs)
-        _client_cache[key] = client
-    return client
+    if cfg is not None:
+        return _create_client(
+            cfg["access_key"],
+            cfg["secret_key"],
+            cfg["region"],
+            cfg.get("endpoint") or "",
+            settings.S3_MAX_POOL_CONNECTIONS,
+        )
+    c = _resolve_cfg(bucket, provider_id)
+    return _cached_client(
+        c["access_key"],
+        c["secret_key"],
+        c["region"],
+        c.get("endpoint") or "",
+        settings.S3_MAX_POOL_CONNECTIONS,
+    )
 
 
 def _make_presign_client(bucket: str | None = None, provider_id: str | None = None):
     """Client that uses the external-facing URL and SigV4 for presigned URL generation.
     SigV4 is required — MinIO rejects SigV2 presigned URLs for multipart uploads."""
     c = _resolve_cfg(bucket, provider_id)
-    endpoint = c.get("presigned_base") or c.get("endpoint") or ""
-    key = ("presign", c["access_key"], c["region"], endpoint)
-    client = _client_cache.get(key)
-    if client is None:
-        kwargs = {
-            "aws_access_key_id": c["access_key"],
-            "aws_secret_access_key": c["secret_key"],
-            "region_name": c["region"],
-            "config": Config(signature_version="s3v4"),
-        }
-        if endpoint:
-            kwargs["endpoint_url"] = endpoint
-        client = boto3.client("s3", **kwargs)
-        _client_cache[key] = client
-    return client
+    return _cached_presign_client(
+        c["access_key"],
+        c["secret_key"],
+        c["region"],
+        c.get("presigned_base") or c.get("endpoint") or "",
+        settings.S3_MAX_POOL_CONNECTIONS,
+    )
 
 
 def normalize_cfg(raw: dict) -> dict:
@@ -186,8 +237,8 @@ async def test_config(cfg: dict) -> None:
 
 
 def _run_sync(func, *args, **kwargs):
-    """Run a blocking (boto3) call off the event loop in a worker thread."""
-    return asyncio.to_thread(func, *args, **kwargs)
+    loop = asyncio.get_running_loop()
+    return loop.run_in_executor(None, partial(func, *args, **kwargs))
 
 
 async def create_bucket(bucket_name: str, provider_id: str | None = None) -> None:
@@ -334,12 +385,16 @@ async def stream_object(bucket: str, key: str) -> tuple[AsyncGenerator[bytes, No
     body = response["Body"]
 
     async def _generator():
-        chunk_size = 64 * 1024
-        while True:
-            chunk = await asyncio.to_thread(body.read, chunk_size)
-            if not chunk:
-                break
-            yield chunk
+        chunk_size = settings.S3_STREAM_CHUNK_SIZE_KB * 1024
+        loop = asyncio.get_running_loop()
+        try:
+            while True:
+                chunk = await loop.run_in_executor(None, body.read, chunk_size)
+                if not chunk:
+                    break
+                yield chunk
+        finally:
+            body.close()
 
     return _generator(), content_type, content_length
 
@@ -459,21 +514,23 @@ async def generate_presigned_upload_urls(
     if num_parts < 1 or num_parts > MAX_MULTIPART_PARTS:
         raise ValueError(f"num_parts must be between 1 and {MAX_MULTIPART_PARTS}")
     client = _make_presign_client(bucket=bucket)
-    urls = []
-    for part_number in range(1, num_parts + 1):
-        url = await _run_sync(
-            client.generate_presigned_url,
-            "upload_part",
-            Params={
-                "Bucket": bucket,
-                "Key": key,
-                "UploadId": upload_id,
-                "PartNumber": part_number,
-            },
-            ExpiresIn=settings.PRESIGNED_URL_EXPIRY_SECONDS,
-        )
-        urls.append(url)
-    return urls
+
+    def _generate_urls() -> list[str]:
+        return [
+            client.generate_presigned_url(
+                "upload_part",
+                Params={
+                    "Bucket": bucket,
+                    "Key": key,
+                    "UploadId": upload_id,
+                    "PartNumber": part_number,
+                },
+                ExpiresIn=settings.PRESIGNED_URL_EXPIRY_SECONDS,
+            )
+            for part_number in range(1, num_parts + 1)
+        ]
+
+    return await _run_sync(_generate_urls)
 
 
 async def complete_multipart_upload(

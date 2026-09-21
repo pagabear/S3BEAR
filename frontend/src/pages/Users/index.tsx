@@ -187,7 +187,7 @@ export default function UsersPage() {
 
   const groupSelector = (
     <div style={{ marginBottom: 16 }}>
-      <Typography.Text style={{ fontSize: 12, color: '#A0A0A8', fontFamily: "'Fira Code', monospace" }}>
+      <Typography.Text style={{ fontSize: 12, color: '#9AA0AA', fontFamily: "'Fira Code', monospace" }}>
         assign to groups
       </Typography.Text>
       <Select

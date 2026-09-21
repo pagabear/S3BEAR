@@ -1,0 +1,107 @@
+name: s3bear-benchmark
+
+x-backend-environment: &backend-environment
+  DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/s3bear
+  DATABASE_URL_SYNC: postgresql://postgres:postgres@postgres:5432/s3bear
+  DB_POOL_SIZE: "32"
+  DB_MAX_OVERFLOW: "32"
+  DB_POOL_TIMEOUT_SECONDS: "10"
+  SECRET_KEY: benchmark-only-secret-key-at-least-32-characters
+  DEFAULT_ADMIN_EMAIL: benchmark@s3bear.local
+  DEFAULT_ADMIN_PASSWORD: benchmark-password
+  AWS_ENDPOINT_URL: http://minio:9000
+  PRESIGNED_URL_BASE: http://minio:9000
+  AWS_ACCESS_KEY_ID: minioadmin
+  AWS_SECRET_ACCESS_KEY: minioadmin
+  AWS_REGION: us-east-1
+  ALLOWED_ORIGINS: '["http://localhost:18200"]'
+  DEBUG: "false"
+  AUDIT_LOG_FILE_ENABLED: "false"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: s3bear
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "${S3BEAR_BENCH_S3_PORT:-19000}:9000"
+      - "${S3BEAR_BENCH_S3_CONSOLE_PORT:-19001}:9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
+    volumes:
+      - minio-data:/data
+
+  backend-migrate:
+    image: s3bear-benchmark-backend:local
+    build:
+      context: ../backend
+    command: ["alembic", "upgrade", "head"]
+    environment: *backend-environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  backend:
+    image: s3bear-benchmark-backend:local
+    build:
+      context: ../backend
+    environment: *backend-environment
+    ports:
+      - "${S3BEAR_BENCH_GATEWAY_PORT:-18200}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      backend-migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://localhost:8000/health').read()
+      interval: 2s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+
+  benchmark:
+    image: s3bear-benchmark-backend:local
+    working_dir: /workspace
+    profiles: ["runner"]
+    environment:
+      AWS_ACCESS_KEY_ID: minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin
+      AWS_REGION: us-east-1
+      S3BEAR_BENCH_USERNAME: benchmark@s3bear.local
+      S3BEAR_BENCH_PASSWORD: benchmark-password
+    volumes:
+      - ../:/workspace:ro
+      - ./results:/results
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  postgres-data:
+  minio-data:

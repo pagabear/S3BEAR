@@ -162,7 +162,7 @@ export default function BucketsPage() {
           <span style={{ color: C.dim, ...mono }}>/</span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <div style={{ width: 22, height: 22, borderRadius: 5, background: C.accent, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <DatabaseOutlined style={{ color: '#0A0A0B', fontSize: 11 }} />
+              <DatabaseOutlined style={{ color: '#0C0D10', fontSize: 11 }} />
             </div>
             <span style={{ color: C.text, fontWeight: 600, fontSize: 15, ...mono }}>{bucketName}</span>
           </div>
@@ -199,32 +199,27 @@ export default function BucketsPage() {
           className={`animate-fade-up ${staggerClass}`}
           onClick={() => navigate(`/buckets/${bucket.name}`)}
           style={{
-            background: 'linear-gradient(180deg, #16161A 0%, #141416 100%)',
-            border: `1px solid ${C.border}`, borderRadius: 16, padding: 22, cursor: 'pointer',
-            transition: 'border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease',
+            background: C.surface,
+            border: `1px solid ${C.border}`, borderRadius: 0, padding: 22, cursor: 'pointer',
+            transition: 'border-color 180ms ease',
             position: 'relative', overflow: 'hidden',
             minHeight: 232, display: 'flex', flexDirection: 'column',
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.borderColor = 'rgba(16,185,129,0.5)'
-            e.currentTarget.style.boxShadow = '0 0 0 1px rgba(16,185,129,0.15), 0 12px 32px rgba(0,0,0,0.45)'
-            e.currentTarget.style.transform = 'translateY(-3px)'
+            e.currentTarget.style.borderColor = 'var(--border-strong, #363A42)'
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.borderColor = C.border
-            e.currentTarget.style.boxShadow = 'none'
-            e.currentTarget.style.transform = 'translateY(0)'
           }}
         >
           {/* Header */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 13, marginBottom: 18 }}>
             <div style={{
-              width: 50, height: 50, borderRadius: 14,
-              background: 'linear-gradient(135deg, #10B981, #059669)',
+              width: 50, height: 50, borderRadius: 4,
+              background: C.accent,
               display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-              boxShadow: '0 4px 14px rgba(16,185,129,0.35)',
             }}>
-              <DatabaseOutlined style={{ color: '#fff', fontSize: 22 }} />
+              <DatabaseOutlined style={{ color: '#0C0D10', fontSize: 22 }} />
             </div>
             <div style={{ minWidth: 0, flex: 1 }}>
               <div style={{ color: C.text, fontWeight: 600, fontSize: 16, ...mono, wordBreak: 'break-all', lineHeight: 1.3 }}>

@@ -64,7 +64,7 @@ export default function AuditLogPage() {
       key: 'created_at',
       width: 160,
       render: (v: string) => (
-        <span style={{ fontFamily: "'Fira Code', monospace", fontSize: 11, color: '#A0A0A8' }}>
+        <span style={{ fontFamily: "'Fira Code', monospace", fontSize: 11, color: '#9AA0AA' }}>
           {dayjs(v).format('YYYY-MM-DD HH:mm:ss')}
         </span>
       ),
@@ -97,7 +97,7 @@ export default function AuditLogPage() {
       width: 150,
       render: (v: string | null) => v ? (
         <span style={{ fontFamily: "'Fira Code', monospace", fontSize: 12 }}>{v}</span>
-      ) : <span style={{ color: '#6B6B73' }}>—</span>,
+      ) : <span style={{ color: '#656B75' }}>—</span>,
     },
     {
       title: 'object',
@@ -106,7 +106,7 @@ export default function AuditLogPage() {
       ellipsis: true,
       render: (v: string | null) => v ? (
         <span style={{ fontFamily: "'Fira Code', monospace", fontSize: 11, color: '#CBD5E1' }}>{v}</span>
-      ) : <span style={{ color: '#6B6B73' }}>—</span>,
+      ) : <span style={{ color: '#656B75' }}>—</span>,
     },
     {
       title: 'ip',
@@ -114,7 +114,7 @@ export default function AuditLogPage() {
       key: 'ip_address',
       width: 130,
       render: (v: string | null) => (
-        <span style={{ fontFamily: "'Fira Code', monospace", fontSize: 11, color: '#6B6B73' }}>{v || '—'}</span>
+        <span style={{ fontFamily: "'Fira Code', monospace", fontSize: 11, color: '#656B75' }}>{v || '—'}</span>
       ),
     },
   ]
@@ -171,7 +171,7 @@ export default function AuditLogPage() {
         }}
         expandable={{
           expandedRowRender: (record) => record.details ? (
-            <pre style={{ fontFamily: "'Fira Code', monospace", fontSize: 11, color: '#A0A0A8', margin: 0 }}>
+            <pre style={{ fontFamily: "'Fira Code', monospace", fontSize: 11, color: '#9AA0AA', margin: 0 }}>
               {JSON.stringify(record.details, null, 2)}
             </pre>
           ) : null,

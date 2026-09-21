@@ -1,0 +1,242 @@
+/* =========================================================================
+   BEAR Design System — theme.css
+   Shared CSS custom properties for BOTH products. Framework-agnostic:
+   works under Tailwind (app + website), Docusaurus/Infima, and Ant Design.
+
+   Load order:
+     1) theme.css              (this file — neutrals, semantics, scales, browser surfaces)
+     2) theme.gatebear.css  OR theme.s3bear.css   (fills the --brand-* slot)
+
+   Theme switching:
+     - Default (:root) is DARK — the primary working surface for operators
+       (dim rooms, long sessions, next to a terminal/IDE). This is a
+       use-scene decision, not a "dev tool = dark" reflex. See BEAR_DESIGN_SYSTEM.md.
+     - [data-theme="light"] opts a subtree/page into light (bright office,
+       docs reading, print-adjacent, accessibility preference).
+     - The reference apps use class/attribute theming; both selectors are wired.
+
+   Naming: unprefixed semantic names are the canonical BEAR variables the
+   Tailwind preset reads (var(--brand-accent), var(--panel), ...).
+   ========================================================================= */
+
+:root {
+  /* ---- Scale primitives (theme-independent) ---- */
+  --font-sans: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", "SFMono-Regular", "Fira Code", Menlo, Monaco, Consolas, monospace;
+
+  --radius-none: 0px;
+  --radius-control: 4px;
+  --radius-full: 9999px;
+
+  --border-hairline: 1px;
+  --focus-ring: 2px;
+  --focus-offset: 2px;
+  --stripe: 3px;
+
+  --dur-fast: 120ms;
+  --dur-base: 180ms;
+  --dur-slow: 240ms;
+  --dur-deliberate: 320ms;
+
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-entrance: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+
+  --z-sticky: 100;
+  --z-dropdown: 200;
+  --z-overlay: 300;
+  --z-modal: 400;
+  --z-toast: 500;
+  --z-tooltip: 600;
+
+  --container-prose: 720px;
+  --container-content: 1200px;
+  --container-wide: 1440px;
+
+  /* ---- Carbon ramp (raw, for rare direct use) ---- */
+  --carbon-50:  #F7F8FA;
+  --carbon-100: #ECEEF1;
+  --carbon-200: #DBDEE3;
+  --carbon-300: #C2C7CE;
+  --carbon-400: #9AA0AA;
+  --carbon-500: #656B75;
+  --carbon-600: #4B505A;
+  --carbon-700: #363A42;
+  --carbon-800: #282C33;
+  --carbon-850: #1C1E23;
+  --carbon-900: #15171B;
+  --carbon-950: #0C0D10;
+  --carbon-void: #08090B;
+  --carbon-white: #FFFFFF;
+
+  /* =======================================================================
+     DARK THEME (default working surface)
+     ======================================================================= */
+
+  /* ---- Surface roles ---- */
+  --bg: var(--carbon-950);
+  --panel: var(--carbon-900);
+  --panel-2: var(--carbon-850);
+  --inset: var(--carbon-950);
+  --void: var(--carbon-void);
+  --border: var(--carbon-800);
+  --border-strong: var(--carbon-700);
+
+  /* ---- Text roles ---- */
+  --text: var(--carbon-100);
+  --text-muted: var(--carbon-400);
+  --text-subtle: var(--carbon-500);
+
+  /* ---- Semantic feedback (shared, identical across brands) ---- */
+  --success-fg: #4ADE80;  --success: #22C55E;  --success-on: #0C0D10;  --success-soft: rgba(34,197,94,0.15);
+  --warning-fg: #FBBF24;  --warning: #F59E0B;  --warning-on: #0C0D10;  --warning-soft: rgba(245,158,11,0.15);
+  --danger-fg:  #F87171;  --danger:  #EF4444;  --danger-on:  #0C0D10;  --danger-soft:  rgba(239,68,68,0.15);
+  --info-fg:    #38BDF8;  --info:    #0EA5E9;  --info-on:    #0C0D10;  --info-soft:    rgba(14,165,233,0.15);
+
+  /* ---- Elevation (only true overlays lift; cards stay flat) ---- */
+  --shadow-flat: none;
+  --shadow-overlay: 0 8px 24px -6px rgba(0,0,0,0.60), 0 2px 6px rgba(0,0,0,0.50);
+  --shadow-modal: 0 24px 60px -18px rgba(0,0,0,0.70), 0 4px 12px rgba(0,0,0,0.55);
+
+  /* ---- BRAND SLOT — default is NEUTRAL so a missing brand file is obvious.
+          OVERRIDE via theme.gatebear.css (blue) or theme.s3bear.css (emerald). ---- */
+  --brand-accent: var(--carbon-400);
+  --brand-accent-hover: var(--carbon-300);
+  --brand-accent-contrast: #0C0D10;
+  --brand-accent-text: var(--carbon-300);
+  --brand-accent-soft: rgba(154,160,170,0.14);
+  --brand-accent-ring: rgba(154,160,170,0.55);
+  --brand-accent-border: var(--carbon-400);
+
+  /* ---- Browser-surface tokens (derived) ---- */
+  --selection-bg: color-mix(in srgb, var(--brand-accent) 26%, transparent);
+  --scrollbar-thumb: var(--carbon-700);
+  --scrollbar-thumb-hover: var(--carbon-600);
+  --scrollbar-track: transparent;
+  --link-underline: var(--brand-accent-text);
+
+  color-scheme: dark;
+}
+
+/* =========================================================================
+   LIGHT THEME — opt-in by use scene.
+   ========================================================================= */
+:root[data-theme="light"],
+.light,
+[data-theme="light"] {
+  --bg: var(--carbon-50);
+  --panel: var(--carbon-white);
+  --panel-2: var(--carbon-100);
+  --inset: var(--carbon-50);
+  --void: var(--carbon-900);
+  --border: var(--carbon-200);
+  --border-strong: var(--carbon-300);
+
+  --text: var(--carbon-900);
+  --text-muted: var(--carbon-500);
+  --text-subtle: var(--carbon-400);
+
+  --success-fg: #15803D;  --success: #16A34A;  --success-on: #FFFFFF;  --success-soft: rgba(22,163,74,0.10);
+  --warning-fg: #B45309;  --warning: #D97706;  --warning-on: #0C0D10;  --warning-soft: rgba(217,119,6,0.10);
+  --danger-fg:  #DC2626;  --danger:  #DC2626;  --danger-on:  #FFFFFF;  --danger-soft:  rgba(220,38,38,0.10);
+  --info-fg:    #0369A1;  --info:    #0284C7;  --info-on:    #FFFFFF;  --info-soft:    rgba(2,132,199,0.10);
+
+  --shadow-flat: none;
+  --shadow-overlay: 0 8px 24px -6px rgba(16,18,22,0.14), 0 2px 6px rgba(16,18,22,0.08);
+  --shadow-modal: 0 24px 60px -18px rgba(16,18,22,0.28), 0 4px 12px rgba(16,18,22,0.12);
+
+  /* Neutral default brand slot (light) — OVERRIDE per brand. */
+  --brand-accent: var(--carbon-600);
+  --brand-accent-hover: var(--carbon-700);
+  --brand-accent-contrast: #FFFFFF;
+  --brand-accent-text: var(--carbon-600);
+  --brand-accent-soft: rgba(75,80,90,0.08);
+  --brand-accent-ring: rgba(75,80,90,0.40);
+  --brand-accent-border: var(--carbon-600);
+
+  --scrollbar-thumb: var(--carbon-300);
+  --scrollbar-thumb-hover: var(--carbon-400);
+  --scrollbar-track: transparent;
+
+  color-scheme: light;
+}
+
+/* Also honor the system preference when no explicit attribute/class is set. */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]):not(.dark) {
+    --bg: var(--carbon-50);
+    --panel: var(--carbon-white);
+    --panel-2: var(--carbon-100);
+    --inset: var(--carbon-50);
+    --void: var(--carbon-900);
+    --border: var(--carbon-200);
+    --border-strong: var(--carbon-300);
+    --text: var(--carbon-900);
+    --text-muted: var(--carbon-500);
+    --text-subtle: var(--carbon-400);
+    --success-fg: #15803D; --success: #16A34A; --success-on: #FFFFFF; --success-soft: rgba(22,163,74,0.10);
+    --warning-fg: #B45309; --warning: #D97706; --warning-on: #0C0D10; --warning-soft: rgba(217,119,6,0.10);
+    --danger-fg:  #DC2626; --danger:  #DC2626; --danger-on:  #FFFFFF; --danger-soft:  rgba(220,38,38,0.10);
+    --info-fg:    #0369A1; --info:    #0284C7; --info-on:    #FFFFFF; --info-soft:    rgba(2,132,199,0.10);
+    --shadow-overlay: 0 8px 24px -6px rgba(16,18,22,0.14), 0 2px 6px rgba(16,18,22,0.08);
+    --shadow-modal: 0 24px 60px -18px rgba(16,18,22,0.28), 0 4px 12px rgba(16,18,22,0.12);
+    --scrollbar-thumb: var(--carbon-300);
+    --scrollbar-thumb-hover: var(--carbon-400);
+    color-scheme: light;
+  }
+}
+
+/* =========================================================================
+   BROWSER SURFACES — the parts most systems leave at browser defaults.
+   Theming these from the palette is the cheapest signal a page was BUILT.
+   ========================================================================= */
+
+/* Text selection */
+::selection { background: var(--selection-bg); color: var(--text); }
+
+/* Caret follows the brand accent in editable fields */
+input, textarea, [contenteditable] { caret-color: var(--brand-accent); }
+
+/* Custom scrollbars (WebKit + Firefox) — thin, neutral, no chrome */
+* { scrollbar-width: thin; scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track); }
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: var(--scrollbar-track); }
+*::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: var(--radius-full);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); }
+*::-webkit-scrollbar-corner { background: transparent; }
+
+/* Keyboard focus — crisp accent ring, offset in the page color. Never a glow. */
+:where(a, button, [role="button"], input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: var(--focus-ring) solid var(--brand-accent-ring);
+  outline-offset: var(--focus-offset);
+  border-radius: var(--radius-control);
+}
+
+/* Link underline offset + thickness (browser default is cramped) */
+a { text-underline-offset: 0.18em; text-decoration-thickness: 1px; text-decoration-color: color-mix(in srgb, var(--link-underline) 55%, transparent); }
+a:hover { text-decoration-color: var(--link-underline); }
+
+/* Tabular numerals wherever figures line up (mono, metrics, tables) */
+.font-mono, .tabular-nums, [data-numeric], table td, table th {
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+/* Inter feature settings for the whole document */
+html { font-feature-settings: "cv02","cv03","cv04","cv11","ss01"; }
+
+/* =========================================================================
+   REDUCED MOTION — collapse all transitions/animations.
+   ========================================================================= */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

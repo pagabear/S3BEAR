@@ -86,8 +86,8 @@ export default function AppLayout() {
       <Sider
         width={SIDER_W}
         style={{
-          background: '#141416',
-          borderRight: '1px solid #1C1C20',
+          background: '#15171B',
+          borderRight: '1px solid #1C1E23',
           position: 'fixed',
           left: 0,
           top: 0,
@@ -104,12 +104,12 @@ export default function AppLayout() {
           />
         </div>
 
-        <div style={{ height: 1, background: '#1C1C20', margin: '4px 16px 12px' }} />
+        <div style={{ height: 1, background: '#1C1E23', margin: '4px 16px 12px' }} />
 
         <div style={{ overflowY: 'auto', position: 'absolute', top: 96, bottom: 68, left: 0, right: 0 }}>
           {navGroups.map((group) => (
             <div key={group.label} style={{ marginBottom: 8 }}>
-              <div style={{ padding: '10px 22px 6px', color: '#6B6B73', fontSize: 12, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+              <div style={{ padding: '10px 22px 6px', color: '#656B75', fontSize: 12, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
                 {group.label}
               </div>
               <Menu
@@ -130,9 +130,9 @@ export default function AppLayout() {
             bottom: 0,
             left: 0,
             right: 0,
-            borderTop: '1px solid #1C1C20',
+            borderTop: '1px solid #1C1E23',
             padding: '12px 10px',
-            background: '#141416',
+            background: '#15171B',
           }}
         >
           <Dropdown menu={userMenu} placement="topRight" trigger={['click']}>
@@ -145,10 +145,10 @@ export default function AppLayout() {
                 {initial}
               </Avatar>
               <div style={{ overflow: 'hidden', flex: 1, minWidth: 0 }}>
-                <div style={{ color: '#ECECEE', fontSize: 14, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                <div style={{ color: '#ECEEF1', fontSize: 14, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {user?.display_name || user?.email || 'user'}
                 </div>
-                <div style={{ color: user?.is_admin ? '#34D399' : '#6B6B73', fontSize: 12 }}>
+                <div style={{ color: user?.is_admin ? '#34D399' : '#656B75', fontSize: 12 }}>
                   {user?.is_admin ? 'Administrator' : 'Member'}
                 </div>
               </div>
