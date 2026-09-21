@@ -32,8 +32,13 @@ class Group(Base):
     name: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
     description: Mapped[str] = mapped_column(Text, nullable=False, default="")
 
+    # Deliberately not eager-loaded: authenticating a user selectin-loads their
+    # groups, and an eager Group.users would then pull in every member of each
+    # group on every request. Group serialization (GroupRead) never includes
+    # members, and user-assignment appends to User.groups without needing this
+    # side loaded, so the default lazy strategy is both correct and cheaper.
     users: Mapped[list["User"]] = relationship(  # noqa: F821
-        "User", secondary="user_groups", back_populates="groups", lazy="selectin"
+        "User", secondary="user_groups", back_populates="groups"
     )
     permissions: Mapped[list[BucketPermission]] = relationship(
         "BucketPermission", back_populates="group", cascade="all, delete-orphan", lazy="selectin"

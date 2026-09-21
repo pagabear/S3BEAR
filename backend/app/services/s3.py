@@ -4,7 +4,6 @@ from botocore.exceptions import ClientError
 from typing import AsyncGenerator, Optional
 import asyncio
 import time
-from functools import partial
 
 from app.core.config import settings
 
@@ -336,9 +335,8 @@ async def stream_object(bucket: str, key: str) -> tuple[AsyncGenerator[bytes, No
 
     async def _generator():
         chunk_size = 64 * 1024
-        loop = asyncio.get_event_loop()
         while True:
-            chunk = await loop.run_in_executor(None, body.read, chunk_size)
+            chunk = await asyncio.to_thread(body.read, chunk_size)
             if not chunk:
                 break
             yield chunk
