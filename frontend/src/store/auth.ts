@@ -2,6 +2,12 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { authApi, UserInfo } from '../api/auth'
 
+// Single-flight guard: concurrent 401s must share one refresh call. Because the
+// backend rotates the refresh token on every use, firing several refreshes in
+// parallel would send an already-consumed token and log the user out. This
+// promise lives outside the store so it is never persisted or serialized.
+let refreshInFlight: Promise<boolean> | null = null
+
 interface AuthState {
   accessToken: string | null
   refreshToken: string | null
@@ -33,19 +39,30 @@ export const useAuthStore = create<AuthState>()(
       },
 
       refresh: async () => {
-        const { refreshToken } = get()
-        if (!refreshToken) return false
+        // Coalesce concurrent refreshes into the one already in flight.
+        if (refreshInFlight) return refreshInFlight
+
+        refreshInFlight = (async () => {
+          const { refreshToken } = get()
+          if (!refreshToken) return false
+          try {
+            const res = await authApi.refresh(refreshToken)
+            set({
+              accessToken: res.data.access_token,
+              refreshToken: res.data.refresh_token,
+              isAuthenticated: true,
+            })
+            return true
+          } catch {
+            set({ accessToken: null, refreshToken: null, user: null, isAuthenticated: false })
+            return false
+          }
+        })()
+
         try {
-          const res = await authApi.refresh(refreshToken)
-          set({
-            accessToken: res.data.access_token,
-            refreshToken: res.data.refresh_token,
-            isAuthenticated: true,
-          })
-          return true
-        } catch {
-          set({ accessToken: null, refreshToken: null, user: null, isAuthenticated: false })
-          return false
+          return await refreshInFlight
+        } finally {
+          refreshInFlight = null
         }
       },
 

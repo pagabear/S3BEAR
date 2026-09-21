@@ -1,6 +1,5 @@
 import re
 import uuid
-from fnmatch import fnmatch
 from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, field_validator
@@ -14,24 +13,10 @@ from app.models.provider import StorageProvider, ManagedBucket
 from app.models.bucket_tag import BucketTag as BucketTagModel
 from app.schemas.s3 import BucketInfo, BucketTag, BrowseResult, S3Object
 from app.services import s3 as s3_service
+from app.services.permissions import resolve_permissions as _resolve_permissions
 from app.services.audit import log_audit, CREATE_BUCKET, DELETE_BUCKET
 
 router = APIRouter(prefix="/buckets", tags=["buckets"])
-
-
-def _resolve_permissions(user: User, bucket_name: str) -> dict:
-    if user.is_admin:
-        return {"can_list": True, "can_read": True, "can_write": True, "can_delete": True}
-
-    perms = {"can_list": False, "can_read": False, "can_write": False, "can_delete": False}
-    for group in user.groups:
-        for perm in group.permissions:
-            if fnmatch(bucket_name, perm.bucket_pattern):
-                perms["can_list"] = perms["can_list"] or perm.can_list
-                perms["can_read"] = perms["can_read"] or perm.can_read
-                perms["can_write"] = perms["can_write"] or perm.can_write
-                perms["can_delete"] = perms["can_delete"] or perm.can_delete
-    return perms
 
 
 _BUCKET_NAME_RE = re.compile(r'^[a-z0-9][a-z0-9.\-]{1,61}[a-z0-9]$')

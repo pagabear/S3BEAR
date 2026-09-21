@@ -1,10 +1,10 @@
-from fnmatch import fnmatch
+import os
 from typing import Annotated
 from fastapi import APIRouter, Depends, File, HTTPException, Path, Request, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user, get_db
+from app.api.deps import ensure_bucket_permission, get_current_user, get_db
 from app.models.settings import AppSetting
 from app.models.user import User
 from app.schemas.s3 import BulkCopyMoveRequest, BulkResult, CopyMoveRequest, DeleteRequest, DeleteResult
@@ -12,21 +12,6 @@ from app.services import s3 as s3_service
 from app.services.audit import log_audit, UPLOAD, DELETE, COPY, MOVE
 
 router = APIRouter(prefix="/buckets", tags=["objects"])
-
-
-def _check_perm(user: User, bucket_name: str, action: str) -> None:
-    if user.is_admin:
-        return
-    action_map = {"write": "can_write", "delete": "can_delete", "read": "can_read"}
-    attr = action_map[action]
-    for group in user.groups:
-        for perm in group.permissions:
-            if fnmatch(bucket_name, perm.bucket_pattern) and getattr(perm, attr):
-                return
-    raise HTTPException(
-        status_code=status.HTTP_403_FORBIDDEN,
-        detail=f"No '{action}' permission for bucket '{bucket_name}'",
-    )
 
 
 async def _check_quota(db: AsyncSession, bucket_name: str, upload_size: int) -> None:
@@ -67,16 +52,26 @@ async def upload_object(
     file: Annotated[UploadFile, File()],
     prefix: str = "",
 ):
-    _check_perm(current_user, bucket_name, "write")
+    ensure_bucket_permission(current_user, bucket_name, "write")
     key = f"{prefix}{file.filename}" if prefix else file.filename
-    data = await file.read()
-    await _check_quota(db, bucket_name, len(data))
+
+    # Measure the upload without reading it into memory. Starlette spools the
+    # body to a temp file, so seeking to the end gives the size cheaply and the
+    # quota check runs before we transfer a single byte to S3.
+    size = file.file.seek(0, os.SEEK_END)
+    file.file.seek(0)
+    await _check_quota(db, bucket_name, size)
+
     content_type = file.content_type or "application/octet-stream"
-    await s3_service.put_object(bucket=bucket_name, key=key, data=data, content_type=content_type)
+    # Stream straight from the spooled file to S3 instead of buffering the whole
+    # object as a bytes value in the request handler.
+    await s3_service.upload_fileobj(
+        bucket=bucket_name, key=key, fileobj=file.file, content_type=content_type
+    )
     await log_audit(db, current_user, UPLOAD, bucket=bucket_name, object_key=key,
-                    details={"size": len(data), "content_type": content_type},
+                    details={"size": size, "content_type": content_type},
                     ip_address=request.client.host if request.client else None)
-    return {"key": key, "size": len(data)}
+    return {"key": key, "size": size}
 
 
 @router.delete("/{bucket_name}/objects", response_model=DeleteResult)
@@ -87,7 +82,7 @@ async def delete_objects(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    _check_perm(current_user, bucket_name, "delete")
+    ensure_bucket_permission(current_user, bucket_name, "delete")
     result = await s3_service.delete_objects(bucket=bucket_name, keys=body.keys)
     for key in body.keys:
         await log_audit(db, current_user, DELETE, bucket=bucket_name, object_key=key,
@@ -103,8 +98,8 @@ async def copy_object(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    _check_perm(current_user, body.source_bucket, "read")
-    _check_perm(current_user, bucket_name, "write")
+    ensure_bucket_permission(current_user, body.source_bucket, "read")
+    ensure_bucket_permission(current_user, bucket_name, "write")
     try:
         await s3_service.copy_object(body.source_bucket, body.source_key, bucket_name, body.dest_key)
     except FileNotFoundError as e:
@@ -123,9 +118,9 @@ async def move_object(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    _check_perm(current_user, body.source_bucket, "read")
-    _check_perm(current_user, body.source_bucket, "delete")
-    _check_perm(current_user, bucket_name, "write")
+    ensure_bucket_permission(current_user, body.source_bucket, "read")
+    ensure_bucket_permission(current_user, body.source_bucket, "delete")
+    ensure_bucket_permission(current_user, bucket_name, "write")
     try:
         await s3_service.move_object(body.source_bucket, body.source_key, bucket_name, body.dest_key)
     except FileNotFoundError as e:
@@ -145,8 +140,8 @@ async def bulk_copy_objects(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    _check_perm(current_user, body.source_bucket, "read")
-    _check_perm(current_user, bucket_name, "write")
+    ensure_bucket_permission(current_user, body.source_bucket, "read")
+    ensure_bucket_permission(current_user, bucket_name, "write")
     result = await s3_service.bulk_copy_move(
         body.source_bucket, body.keys, bucket_name, body.dest_prefix, move=False
     )
@@ -166,9 +161,9 @@ async def bulk_move_objects(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    _check_perm(current_user, body.source_bucket, "read")
-    _check_perm(current_user, body.source_bucket, "delete")
-    _check_perm(current_user, bucket_name, "write")
+    ensure_bucket_permission(current_user, body.source_bucket, "read")
+    ensure_bucket_permission(current_user, body.source_bucket, "delete")
+    ensure_bucket_permission(current_user, bucket_name, "write")
     result = await s3_service.bulk_copy_move(
         body.source_bucket, body.keys, bucket_name, body.dest_prefix, move=True
     )
