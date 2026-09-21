@@ -44,6 +44,12 @@ _providers: dict[str, dict] = {}
 _default_provider_id: str | None = None
 _bucket_map: dict[str, str] = {}  # bucket_name -> provider_id
 
+# boto3 clients are safe to reuse across calls; building one per operation
+# re-parses config and reopens connection pools needlessly. Cached by the
+# connection parameters that identify a distinct client and cleared whenever
+# providers are reloaded.
+_client_cache: dict[tuple, object] = {}
+
 ENV_PROVIDER_ID = "env"
 
 
@@ -57,6 +63,8 @@ def set_providers(providers: list[dict], default_id: str | None = None) -> None:
         _default_provider_id = providers[0]["id"]
     else:
         _default_provider_id = None
+    # Provider configs changed; drop any boto3 clients built from the old ones.
+    _client_cache.clear()
 
 
 def set_bucket_map(mapping: dict[str, str]) -> None:
@@ -120,30 +128,41 @@ def _resolve_cfg(bucket: str | None = None, provider_id: str | None = None) -> d
 
 def _make_client(bucket: str | None = None, provider_id: str | None = None, cfg: dict | None = None):
     c = cfg or _resolve_cfg(bucket, provider_id)
-    kwargs = {
-        "aws_access_key_id": c["access_key"],
-        "aws_secret_access_key": c["secret_key"],
-        "region_name": c["region"],
-    }
-    if c.get("endpoint"):
-        kwargs["endpoint_url"] = c["endpoint"]
-    return boto3.client("s3", **kwargs)
+    endpoint = c.get("endpoint") or ""
+    key = ("plain", c["access_key"], c["region"], endpoint)
+    client = _client_cache.get(key)
+    if client is None:
+        kwargs = {
+            "aws_access_key_id": c["access_key"],
+            "aws_secret_access_key": c["secret_key"],
+            "region_name": c["region"],
+        }
+        if endpoint:
+            kwargs["endpoint_url"] = endpoint
+        client = boto3.client("s3", **kwargs)
+        _client_cache[key] = client
+    return client
 
 
 def _make_presign_client(bucket: str | None = None, provider_id: str | None = None):
     """Client that uses the external-facing URL and SigV4 for presigned URL generation.
     SigV4 is required — MinIO rejects SigV2 presigned URLs for multipart uploads."""
     c = _resolve_cfg(bucket, provider_id)
-    endpoint = c.get("presigned_base") or c.get("endpoint")
-    kwargs = {
-        "aws_access_key_id": c["access_key"],
-        "aws_secret_access_key": c["secret_key"],
-        "region_name": c["region"],
-        "config": Config(signature_version="s3v4"),
-    }
-    if endpoint:
-        kwargs["endpoint_url"] = endpoint
-    return boto3.client("s3", **kwargs)
+    endpoint = c.get("presigned_base") or c.get("endpoint") or ""
+    key = ("presign", c["access_key"], c["region"], endpoint)
+    client = _client_cache.get(key)
+    if client is None:
+        kwargs = {
+            "aws_access_key_id": c["access_key"],
+            "aws_secret_access_key": c["secret_key"],
+            "region_name": c["region"],
+            "config": Config(signature_version="s3v4"),
+        }
+        if endpoint:
+            kwargs["endpoint_url"] = endpoint
+        client = boto3.client("s3", **kwargs)
+        _client_cache[key] = client
+    return client
 
 
 def normalize_cfg(raw: dict) -> dict:
@@ -168,8 +187,8 @@ async def test_config(cfg: dict) -> None:
 
 
 def _run_sync(func, *args, **kwargs):
-    loop = asyncio.get_event_loop()
-    return loop.run_in_executor(None, partial(func, *args, **kwargs))
+    """Run a blocking (boto3) call off the event loop in a worker thread."""
+    return asyncio.to_thread(func, *args, **kwargs)
 
 
 async def create_bucket(bucket_name: str, provider_id: str | None = None) -> None:
