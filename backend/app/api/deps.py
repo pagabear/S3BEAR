@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.security import decode_token
 from app.models.user import User
+from app.services import permissions
 from app.services.auth import load_active_user_with_permissions
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/token")
@@ -60,45 +61,30 @@ async def require_admin(
     return current_user
 
 
-_ACTION_MAP = {
-    "list": "can_list",
-    "read": "can_read",
-    "write": "can_write",
-    "delete": "can_delete",
-}
+def ensure_bucket_permission(user: User, bucket_name: str, action: str) -> None:
+    """Raise HTTP 403 unless `user` may perform `action` on `bucket_name`.
 
-
-def _is_safe_pattern(pattern: str) -> bool:
-    """Reject patterns with character class brackets to prevent fnmatch abuse."""
-    return "[" not in pattern and "]" not in pattern
-
-
-def _has_permission(user: User, bucket_name: str, attr: str) -> bool:
-    """Check if any of the user's group permissions grant the given action on the bucket."""
-    from fnmatch import fnmatch
-
-    for group in user.groups:
-        for perm in group.permissions:
-            if _is_safe_pattern(perm.bucket_pattern) and fnmatch(bucket_name, perm.bucket_pattern) and getattr(perm, attr):
-                return True
-    return False
+    The single imperative entry point for permission checks in request handlers.
+    All matching logic (including the fnmatch hardening) lives in
+    ``app.services.permissions``.
+    """
+    if not permissions.has_permission(user, bucket_name, action):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"No '{action}' permission for bucket '{bucket_name}'",
+        )
 
 
 def require_bucket_permission(action: str):
-    """Returns a dependency that checks if the current user can perform `action` on a bucket."""
-    attr = _ACTION_MAP.get(action)
-    if not attr:
+    """Returns a FastAPI dependency that enforces `action` on the path's bucket."""
+    if action not in permissions.ACTION_MAP:
         raise ValueError(f"Unknown action: {action}")
 
     async def checker(
         bucket_name: str,
         current_user: Annotated[User, Depends(get_current_user)],
     ) -> User:
-        if not current_user.is_admin and not _has_permission(current_user, bucket_name, attr):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"No '{action}' permission for bucket '{bucket_name}'",
-            )
+        ensure_bucket_permission(current_user, bucket_name, action)
         return current_user
 
     return checker

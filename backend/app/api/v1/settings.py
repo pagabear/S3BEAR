@@ -211,7 +211,7 @@ async def update_bucket_quota(
 
 async def _get_default_provider(db: AsyncSession) -> StorageProvider | None:
     return (await db.execute(
-        select(StorageProvider).where(StorageProvider.is_default == True)  # noqa: E712
+        select(StorageProvider).where(StorageProvider.is_default.is_(True))
     )).scalar_one_or_none()
 
 

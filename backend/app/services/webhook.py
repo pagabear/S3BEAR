@@ -97,7 +97,7 @@ async def enqueue_event(
     from app.models.webhook import WebhookEndpoint, WebhookDelivery
 
     result = await db.execute(
-        select(WebhookEndpoint).where(WebhookEndpoint.enabled == True)  # noqa: E712
+        select(WebhookEndpoint).where(WebhookEndpoint.enabled.is_(True))
     )
     endpoints = result.scalars().all()
 

@@ -1,10 +1,13 @@
+import logging
 import math
 from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user, get_db
-from app.api.v1.objects import _check_perm, _check_quota
+logger = logging.getLogger(__name__)
+
+from app.api.deps import ensure_bucket_permission, get_current_user, get_db
+from app.api.v1.objects import _check_quota
 from app.core.config import settings as app_settings
 from app.models.user import User
 from app.schemas.upload import (
@@ -30,7 +33,7 @@ async def init_multipart_upload(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    _check_perm(current_user, bucket_name, "write")
+    ensure_bucket_permission(current_user, bucket_name, "write")
     await _check_quota(db, bucket_name, body.file_size)
 
     part_size = app_settings.MULTIPART_PART_SIZE_MB * 1024 * 1024
@@ -59,7 +62,7 @@ async def complete_multipart_upload(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    _check_perm(current_user, bucket_name, "write")
+    ensure_bucket_permission(current_user, bucket_name, "write")
     parts = [
         {"PartNumber": p.part_number, "ETag": p.etag}
         for p in sorted(body.parts, key=lambda x: x.part_number)
@@ -85,13 +88,18 @@ async def abort_multipart_upload(
     body: MultipartAbortRequest,
     current_user: Annotated[User, Depends(get_current_user)],
 ):
-    _check_perm(current_user, bucket_name, "write")
+    ensure_bucket_permission(current_user, bucket_name, "write")
     try:
         await s3_service.abort_multipart_upload(
             bucket=bucket_name, key=body.key, upload_id=body.upload_id
         )
     except Exception:
-        pass  # best effort
+        # Best effort: the client has moved on, but a failed abort leaves an
+        # orphaned multipart upload accruing storage, so make it visible.
+        logger.warning(
+            "Failed to abort multipart upload (bucket=%s key=%s upload_id=%s)",
+            bucket_name, body.key, body.upload_id, exc_info=True,
+        )
     return {"aborted": True}
 
 
@@ -101,7 +109,7 @@ async def presign_download(
     body: PresignDownloadRequest,
     current_user: Annotated[User, Depends(get_current_user)],
 ):
-    _check_perm(current_user, bucket_name, "read")
+    ensure_bucket_permission(current_user, bucket_name, "read")
     url = await s3_service.generate_presigned_download_url(
         bucket=bucket_name, key=body.key
     )

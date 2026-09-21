@@ -1,9 +1,8 @@
-from fnmatch import fnmatch
 from typing import Annotated
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 
-from app.api.deps import get_current_user
+from app.api.deps import ensure_bucket_permission, get_current_user
 from app.api.v1.image_utils import parse_or_400, render_transformed
 from app.models.user import User
 from app.services import s3 as s3_service
@@ -17,16 +16,7 @@ ALLOWED_CONTENT_TYPES = {
 
 
 def _check_read(user: User, bucket_name: str) -> None:
-    if user.is_admin:
-        return
-    for group in user.groups:
-        for perm in group.permissions:
-            if fnmatch(bucket_name, perm.bucket_pattern) and perm.can_read:
-                return
-    raise HTTPException(
-        status_code=status.HTTP_403_FORBIDDEN,
-        detail=f"No 'read' permission for bucket '{bucket_name}'",
-    )
+    ensure_bucket_permission(user, bucket_name, "read")
 
 
 @router.get("/{bucket_name}/{object_key:path}", responses={403: {"description": "No read permission"}, 404: {"description": "Object not found"}, 415: {"description": "Not an image"}})

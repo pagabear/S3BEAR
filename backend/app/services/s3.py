@@ -3,11 +3,33 @@ from botocore.config import Config
 from botocore.exceptions import ClientError
 from typing import AsyncGenerator, Optional
 import asyncio
+import time
 from functools import lru_cache, partial
 
 from app.core.config import settings
 
 DEFAULT_CONTENT_TYPE = "application/octet-stream"
+
+# ── Storage-stats cache ───────────────────────────────────────────────────────
+# Computing bucket/global size means paginating every object across every
+# provider. Quota enforcement runs that on every upload, so the results are
+# cached for a short TTL and invalidated whenever an object is written or
+# removed. A brief staleness window is acceptable for a quota guard; writes
+# invalidate eagerly so the next check sees fresh totals.
+_STATS_CACHE_TTL_SECONDS = 30
+_bucket_size_cache: dict[str, tuple[float, dict]] = {}   # bucket -> (expires_at, stats)
+_storage_stats_cache: Optional[tuple[float, dict]] = None  # (expires_at, stats)
+
+
+def invalidate_stats_cache(bucket: str | None = None) -> None:
+    """Drop cached size stats. Clears the aggregate always; clears one bucket's
+    entry when named, or all bucket entries when not."""
+    global _storage_stats_cache
+    _storage_stats_cache = None
+    if bucket is None:
+        _bucket_size_cache.clear()
+    else:
+        _bucket_size_cache.pop(bucket, None)
 
 # ── Multi-provider runtime registry ───────────────────────────────────────────
 # s3BEAR can front several S3-compatible backends at once. Each provider holds a
@@ -21,6 +43,12 @@ DEFAULT_CONTENT_TYPE = "application/octet-stream"
 _providers: dict[str, dict] = {}
 _default_provider_id: str | None = None
 _bucket_map: dict[str, str] = {}  # bucket_name -> provider_id
+
+# boto3 clients are safe to reuse across calls; building one per operation
+# re-parses config and reopens connection pools needlessly. Cached by the
+# connection parameters that identify a distinct client and cleared whenever
+# providers are reloaded.
+_client_cache: dict[tuple, object] = {}
 
 ENV_PROVIDER_ID = "env"
 
@@ -311,6 +339,24 @@ async def put_object(bucket: str, key: str, data: bytes, content_type: str = DEF
         Body=data,
         ContentType=content_type,
     )
+    invalidate_stats_cache(bucket)
+
+
+async def upload_fileobj(bucket: str, key: str, fileobj, content_type: str = DEFAULT_CONTENT_TYPE) -> None:
+    """Stream a file-like object to S3 without loading it fully into memory.
+
+    boto3's managed transfer reads the object in chunks and switches to a
+    multipart upload for large files. The caller keeps ownership of ``fileobj``.
+    """
+    client = _make_client(bucket=bucket)
+    await _run_sync(
+        client.upload_fileobj,
+        fileobj,
+        bucket,
+        key,
+        ExtraArgs={"ContentType": content_type},
+    )
+    invalidate_stats_cache(bucket)
 
 
 async def delete_objects(bucket: str, keys: list[str]) -> dict:
@@ -319,6 +365,7 @@ async def delete_objects(bucket: str, keys: list[str]) -> dict:
     response = await _run_sync(client.delete_objects, Bucket=bucket, Delete=delete_payload)
     deleted = [d["Key"] for d in response.get("Deleted", [])]
     errors = [e.get("Key", "") for e in response.get("Errors", [])]
+    invalidate_stats_cache(bucket)
     return {"deleted": deleted, "errors": errors}
 
 
@@ -383,7 +430,11 @@ async def get_object_bytes(bucket: str, key: str, max_bytes: int | None = None) 
 
 
 async def get_bucket_size(bucket_name: str) -> dict:
-    """Return total size and object count for a bucket."""
+    """Return total size and object count for a bucket (short-TTL cached)."""
+    cached = _bucket_size_cache.get(bucket_name)
+    if cached and cached[0] > time.monotonic():
+        return cached[1]
+
     client = _make_client(bucket=bucket_name)
     total_size = 0
     object_count = 0
@@ -403,11 +454,17 @@ async def get_bucket_size(bucket_name: str) -> dict:
             break
         continuation_token = response.get("NextContinuationToken")
 
-    return {"size": total_size, "object_count": object_count}
+    stats = {"size": total_size, "object_count": object_count}
+    _bucket_size_cache[bucket_name] = (time.monotonic() + _STATS_CACHE_TTL_SECONDS, stats)
+    return stats
 
 
 async def get_storage_stats() -> dict:
-    """Return aggregate storage stats across all buckets (all providers)."""
+    """Return aggregate storage stats across all buckets (short-TTL cached)."""
+    global _storage_stats_cache
+    if _storage_stats_cache and _storage_stats_cache[0] > time.monotonic():
+        return _storage_stats_cache[1]
+
     buckets = await list_buckets()
     bucket_stats = []
     total_size = 0
@@ -425,12 +482,14 @@ async def get_storage_stats() -> dict:
         total_size += stats["size"]
         total_objects += stats["object_count"]
 
-    return {
+    result = {
         "total_size": total_size,
         "total_objects": total_objects,
         "bucket_count": len(buckets),
         "buckets": bucket_stats,
     }
+    _storage_stats_cache = (time.monotonic() + _STATS_CACHE_TTL_SECONDS, result)
+    return result
 
 
 async def create_multipart_upload(bucket: str, key: str, content_type: str = DEFAULT_CONTENT_TYPE) -> str:
@@ -486,6 +545,7 @@ async def complete_multipart_upload(
         UploadId=upload_id,
         MultipartUpload={"Parts": parts},
     )
+    invalidate_stats_cache(bucket)
 
 
 async def abort_multipart_upload(bucket: str, key: str, upload_id: str) -> None:
@@ -531,6 +591,7 @@ async def copy_object(source_bucket: str, source_key: str, dest_bucket: str, des
             if e.response["Error"]["Code"] == "NoSuchKey":
                 raise FileNotFoundError(f"Source object not found: {source_key}")
             raise
+        invalidate_stats_cache(dest_bucket)
         return
 
     # Cross-provider copy: pull the object from source, push it to destination.
@@ -543,6 +604,7 @@ async def move_object(source_bucket: str, source_key: str, dest_bucket: str, des
     await copy_object(source_bucket, source_key, dest_bucket, dest_key)
     client = _make_client(bucket=source_bucket)
     await _run_sync(client.delete_object, Bucket=source_bucket, Key=source_key)
+    invalidate_stats_cache(source_bucket)
 
 
 def build_dest_key(source_key: str, dest_prefix: str) -> str:

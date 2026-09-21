@@ -138,7 +138,7 @@ async def load_all_policies() -> None:
 
     async with AsyncSessionLocal() as db:
         result = await db.execute(
-            sa.select(CleanupPolicy).where(CleanupPolicy.is_active == True)
+            sa.select(CleanupPolicy).where(CleanupPolicy.is_active.is_(True))
         )
         policies = result.scalars().all()
 
