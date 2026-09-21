@@ -109,7 +109,7 @@ async def create_bucket(
         if provider is None:
             raise HTTPException(status_code=404, detail="Provider not found")
     else:
-        provider = (await db.execute(select(StorageProvider).where(StorageProvider.is_default == True))).scalar_one_or_none()  # noqa: E712
+        provider = (await db.execute(select(StorageProvider).where(StorageProvider.is_default.is_(True)))).scalar_one_or_none()
 
     # Bucket names are globally unique across s3BEAR so routing stays unambiguous.
     already = (await db.execute(select(ManagedBucket).where(ManagedBucket.name == body.name))).scalar_one_or_none()

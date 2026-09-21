@@ -54,7 +54,7 @@ async def list_providers(
 
 
 async def _clear_default(db: AsyncSession) -> None:
-    rows = (await db.execute(select(StorageProvider).where(StorageProvider.is_default == True))).scalars().all()  # noqa: E712
+    rows = (await db.execute(select(StorageProvider).where(StorageProvider.is_default.is_(True)))).scalars().all()
     for r in rows:
         r.is_default = False
 

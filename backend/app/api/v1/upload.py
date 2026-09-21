@@ -1,7 +1,10 @@
+import logging
 import math
 from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
+
+logger = logging.getLogger(__name__)
 
 from app.api.deps import ensure_bucket_permission, get_current_user, get_db
 from app.api.v1.objects import _check_quota
@@ -91,7 +94,12 @@ async def abort_multipart_upload(
             bucket=bucket_name, key=body.key, upload_id=body.upload_id
         )
     except Exception:
-        pass  # best effort
+        # Best effort: the client has moved on, but a failed abort leaves an
+        # orphaned multipart upload accruing storage, so make it visible.
+        logger.warning(
+            "Failed to abort multipart upload (bucket=%s key=%s upload_id=%s)",
+            bucket_name, body.key, body.upload_id, exc_info=True,
+        )
     return {"aborted": True}
 
 
